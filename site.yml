@@ -1,0 +1,77 @@
+---
+- name: Prepare all hosts
+  hosts: all
+  tasks:
+    - name: Install Python 3
+      yum:
+        name: python3
+        state: present
+      when: ansible_distribution == "CentOS" and ansible_distribution_major_version == "7"
+      tags: always
+
+- name: Install ClickHouse
+  hosts: clickhouse
+  vars:
+    clickhouse_version: "{{ clickhouse_version | default('22.3.3.44') }}"
+  roles:
+    - role: clickhouse
+      clickhouse_version: "{{ clickhouse_version }}"
+  tags: clickhouse
+
+- name: Install Vector
+  hosts: vector
+  vars:
+    
+    clickhouse_host: "{{ hostvars[groups['clickhouse'][0]].ansible_host }}"
+  roles:
+    - vector-role
+  tags: vector
+
+- name: Install Lighthouse
+  hosts: lighthouse
+  vars:
+    
+    clickhouse_host: "{{ hostvars[groups['clickhouse'][0]].ansible_host }}"
+    nginx_user_name: "{{ nginx_user_name | default('nginx') }}"
+  
+  pre_tasks:
+    - name: Install EPEL repository
+      yum:
+        name: epel-release
+        state: present
+      when: ansible_distribution == "CentOS"
+      tags: nginx
+    
+    - name: Install Nginx
+      yum:
+        name: nginx
+        state: present
+      tags: nginx
+    
+    - name: Start Nginx
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+      tags: nginx
+  
+  roles:
+    - lighthouse-role
+  tags: lighthouse
+
+- name: Display installation summary
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Show connection information
+      debug:
+        msg: |
+          Installation Complete!
+          
+          Services:
+          1. ClickHouse: http://{{ hostvars[groups['clickhouse'][0]].ansible_host }}:8123
+          2. Vector API: http://{{ hostvars[groups['vector'][0]].ansible_host }}:8686
+          3. Lighthouse: http://{{ hostvars[groups['lighthouse'][0]].ansible_host }}
+          
+          Vector connects to ClickHouse at: {{ hostvars[groups['clickhouse'][0]].ansible_host }}
+          Lighthouse connects to ClickHouse at: {{ hostvars[groups['clickhouse'][0]].ansible_host }}
