@@ -3,7 +3,7 @@ all:
   vars:
     ansible_user: centos
     ansible_ssh_private_key_file: /home/green/.ssh/id_ed25519
-    ansible_python_interpreter: /usr/bin/python3
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
 
 clickhouse:
   hosts:
